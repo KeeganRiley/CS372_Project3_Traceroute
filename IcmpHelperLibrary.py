@@ -10,6 +10,7 @@ from socket import *
 import struct
 import time
 import select
+import numpy
 
 
 # #################################################################################################################### #
@@ -67,8 +68,10 @@ class IcmpHelperLibrary:
         __ipTimeout = 30
         __ttl = 255                     # Time to live
 
-        # added attributes
-        __rttList = []                  # List to calc RTT stats
+        # # added attributes
+        __rtt = 0                     # RTT for packet, send to rttList for stats
+        # __numPacketsSent = 0
+        # __numPacketsReceived = 0
 
         __DEBUG_IcmpPacket = False      # Allows for debug output
 
@@ -103,6 +106,9 @@ class IcmpHelperLibrary:
         def getTtl(self):
             return self.__ttl
 
+        def getRtt(self):
+            return self.__rtt
+
         # ############################################################################################################ #
         # IcmpPacket Class Setters                                                                                     #
         #                                                                                                              #
@@ -134,6 +140,9 @@ class IcmpHelperLibrary:
 
         def setTtl(self, ttl):
             self.__ttl = ttl
+
+        def setRtt(self, rtt):
+            self.__rtt = rtt
 
         # ############################################################################################################ #
         # IcmpPacket Class Private Functions                                                                           #
@@ -297,6 +306,8 @@ class IcmpHelperLibrary:
                     print("  *        *        *        *        *    Request timed out (By no remaining time left).")
 
                 else:
+                    # Set RTT
+                    self.setRtt((timeReceived - pingStartTime) * 1000)
                     # Fetch the ICMP type and code from the received packet
                     icmpType, icmpCode = recvPacket[20:22]
 
@@ -558,6 +569,11 @@ class IcmpHelperLibrary:
     def __sendIcmpEchoRequest(self, host):
         print("sendIcmpEchoRequest Started...") if self.__DEBUG_IcmpHelperLibrary else 0
 
+        # added attributes
+        rttList = []                  # List to calc RTT stats
+        numPacketsSent = 0
+        numPacketsReceived = 0
+
         for i in range(4):
             # Build packet
             icmpPacket = IcmpHelperLibrary.IcmpPacket()
@@ -570,11 +586,25 @@ class IcmpHelperLibrary:
 
             icmpPacket.buildPacket_echoRequest(packetIdentifier, packetSequenceNumber)  # Build ICMP for IP payload
             icmpPacket.setIcmpTarget(host)
+            numPacketsSent += 1                             # Increment number of packets sent
             icmpPacket.sendEchoRequest()                                                # Build IP
+
+            # Get RTT of packet for stats
+            rttList.append(icmpPacket.getRtt())
+            # TODO: If conditional if packet is received and valid
+            numPacketsReceived += 1
 
             icmpPacket.printIcmpPacketHeader_hex() if self.__DEBUG_IcmpHelperLibrary else 0
             icmpPacket.printIcmpPacket_hex() if self.__DEBUG_IcmpHelperLibrary else 0
             # we should be confirming values are correct, such as identifier and sequence number and data
+
+        minRtt = numpy.min(rttList)
+        maxRtt = numpy.max(rttList)
+        avgRtt = numpy.average(rttList)
+        lossRate = ((numPacketsSent - numPacketsReceived) / numPacketsSent) * 100
+        print(f"Statistics for {host}")
+        print(f"{numPacketsSent} packets sent, {numPacketsReceived} packets received, {lossRate}% packet loss rate")
+        print(f"RTT:    Min: {minRtt}   Max: {maxRtt}   Avg: {avgRtt}")
 
     def __sendIcmpTraceRoute(self, host):
         print("sendIcmpTraceRoute Started...") if self.__DEBUG_IcmpHelperLibrary else 0
