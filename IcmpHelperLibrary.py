@@ -648,7 +648,8 @@ class IcmpHelperLibrary:
         maxRtt = numpy.max(rttList)
         avgRtt = numpy.average(rttList)
         lossRate = ((numPacketsSent - numPacketsReceived) / numPacketsSent) * 100
-        print(f"Statistics for {host}")
+        print("|------------------------------COMPLETED---------------------------------|")
+        print(f"Ping Statistics for IP Address: {host}")
         print(f"{numPacketsSent} packets sent, {numPacketsReceived} packets received, {lossRate}% packet loss rate")
         print(f"RTT:    Min: {minRtt}   Max: {maxRtt}   Avg: {avgRtt}")
 
@@ -685,8 +686,8 @@ def main():
 
 
     # Choose one of the following by uncommenting out the line
-    # icmpHelperPing.sendPing("209.233.126.254")
-    icmpHelperPing.sendPing("www.google.com")
+    icmpHelperPing.sendPing("209.233.126.254")
+    # icmpHelperPing.sendPing("www.google.com")
     # icmpHelperPing.sendPing("gaia.cs.umass.edu")
     # icmpHelperPing.traceRoute("164.151.129.20")
     # icmpHelperPing.traceRoute("122.56.99.243")
