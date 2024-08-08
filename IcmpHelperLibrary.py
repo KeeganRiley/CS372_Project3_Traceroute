@@ -578,7 +578,7 @@ class IcmpHelperLibrary:
     #                                                                                                                  #
     #                                                                                                                  #
     #                                                                                                                  #
-    #                                                                                                                  #
+    # TODO: add a addTTL argument to __sendIcmpEchoRequest                                                        #
     # ################################################################################################################ #
     def __sendIcmpEchoRequest(self, host):
         print("sendIcmpEchoRequest Started...") if self.__DEBUG_IcmpHelperLibrary else 0
