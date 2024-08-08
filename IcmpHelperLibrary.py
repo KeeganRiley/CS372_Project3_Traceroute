@@ -69,9 +69,9 @@ class IcmpHelperLibrary:
         __ttl = 255                     # Time to live
 
         # # added attributes
-        __rtt = 0                     # RTT for packet, send to rttList for stats
-        # __numPacketsSent = 0
-        # __numPacketsReceived = 0
+        __rtt = None                       # RTT for packet, send to rttList for stats
+        __isSent = False                # Check for if packet is sent
+        __responseReceived = False      # Check for if packet is returned
 
         __DEBUG_IcmpPacket = False      # Allows for debug output
 
@@ -109,6 +109,12 @@ class IcmpHelperLibrary:
         def getRtt(self):
             return self.__rtt
 
+        def getIsSent(self):
+            return self.__isSent
+
+        def getResponseReceived(self):
+            return self.__responseReceived
+
         # ############################################################################################################ #
         # IcmpPacket Class Setters                                                                                     #
         #                                                                                                              #
@@ -143,6 +149,12 @@ class IcmpHelperLibrary:
 
         def setRtt(self, rtt):
             self.__rtt = rtt
+
+        def setIsSent(self, booleanValue):
+            self.__isSent = booleanValue
+
+        def setResponseReceived(self, booleanValue):
+            self.__responseReceived = booleanValue
 
         # ############################################################################################################ #
         # IcmpPacket Class Private Functions                                                                           #
@@ -260,6 +272,7 @@ class IcmpHelperLibrary:
             elif (icmpReplyPacket.getIcmpSeqnum_isValid() and icmpReplyPacket.getIcmpIdentifier_isValid() and
                   icmpReplyPacket.getIcmpRawData_isValid()):
                 icmpReplyPacket.setIsValidResponse(True)
+                self.setResponseReceived(True)                      # If valid, set as a received packet
                 print(f"ICMP Reply Packet {icmpReplyPacket.getIcmpSequenceNumber()} is Valid")
 
 
@@ -290,6 +303,7 @@ class IcmpHelperLibrary:
             mySocket.setsockopt(IPPROTO_IP, IP_TTL, struct.pack('I', self.getTtl()))  # Unsigned int - 4 bytes
             try:
                 mySocket.sendto(b''.join([self.__header, self.__data]), (self.__destinationIpAddress, 0))
+                self.setIsSent(True)                        # Mark packet as successfully sent
                 timeLeft = 30
                 pingStartTime = time.time()
                 startedSelect = time.time()
@@ -306,7 +320,7 @@ class IcmpHelperLibrary:
                     print("  *        *        *        *        *    Request timed out (By no remaining time left).")
 
                 else:
-                    # Set RTT
+                    # Set RTT, starts set to None
                     self.setRtt((timeReceived - pingStartTime) * 1000)
                     # Fetch the ICMP type and code from the received packet
                     icmpType, icmpCode = recvPacket[20:22]
@@ -586,13 +600,19 @@ class IcmpHelperLibrary:
 
             icmpPacket.buildPacket_echoRequest(packetIdentifier, packetSequenceNumber)  # Build ICMP for IP payload
             icmpPacket.setIcmpTarget(host)
-            numPacketsSent += 1                             # Increment number of packets sent
             icmpPacket.sendEchoRequest()                                                # Build IP
 
-            # Get RTT of packet for stats
-            rttList.append(icmpPacket.getRtt())
             # TODO: If conditional if packet is received and valid
-            numPacketsReceived += 1
+            if icmpPacket.getIsSent():
+                numPacketsSent += 1
+
+            if icmpPacket.getResponseReceived():
+                numPacketsReceived += 1
+
+            # Get RTT of packet for stats
+            if icmpPacket.getRtt() is not None:
+                rttList.append(icmpPacket.getRtt())
+
 
             icmpPacket.printIcmpPacketHeader_hex() if self.__DEBUG_IcmpHelperLibrary else 0
             icmpPacket.printIcmpPacket_hex() if self.__DEBUG_IcmpHelperLibrary else 0
