@@ -75,6 +75,19 @@ class IcmpHelperLibrary:
 
         __DEBUG_IcmpPacket = False      # Allows for debug output
 
+        errorDict = {
+            3: {
+                0: "Destination Network Unreachable",
+                1: "Destination Host Unreachable",
+                2: "Destination Protocol Unreachable",
+                3: "Destination Port Unreachable"
+            },
+            11: {
+                0: "Time to Live Exceeded in Transit",
+                1: "Fragment Reassembly Time Exceeded"
+            }
+        }
+
         # ############################################################################################################ #
         # IcmpPacket Class Getters                                                                                     #
         #                                                                                                              #
@@ -325,7 +338,9 @@ class IcmpHelperLibrary:
                     # Fetch the ICMP type and code from the received packet
                     icmpType, icmpCode = recvPacket[20:22]
 
-                    if icmpType == 11:                          # Time Exceeded
+                    # TODO: print error code from dictionary≠
+                    if icmpType != 0:
+                        print(self.errorDict[icmpType][icmpCode])
                         print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d    %s" %
                                 (
                                     self.getTtl(),
@@ -336,16 +351,27 @@ class IcmpHelperLibrary:
                                 )
                               )
 
-                    elif icmpType == 3:                         # Destination Unreachable
-                        print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d    %s" %
-                                  (
-                                      self.getTtl(),
-                                      (timeReceived - pingStartTime) * 1000,
-                                      icmpType,
-                                      icmpCode,
-                                      addr[0]
-                                  )
-                              )
+                    # if icmpType == 11:                          # Time Exceeded
+                    #     print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d    %s" %
+                    #             (
+                    #                 self.getTtl(),
+                    #                 (timeReceived - pingStartTime) * 1000,
+                    #                 icmpType,
+                    #                 icmpCode,
+                    #                 addr[0]
+                    #             )
+                    #           )
+                    #
+                    # elif icmpType == 3:                         # Destination Unreachable
+                    #     print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d    %s" %
+                    #               (
+                    #                   self.getTtl(),
+                    #                   (timeReceived - pingStartTime) * 1000,
+                    #                   icmpType,
+                    #                   icmpCode,
+                    #                   addr[0]
+                    #               )
+                    #           )
 
                     elif icmpType == 0:                         # Echo Reply
                         icmpReplyPacket = IcmpHelperLibrary.IcmpPacket_EchoReply(recvPacket)
