@@ -10,7 +10,7 @@ from socket import *
 import struct
 import time
 import select
-import numpy
+import numpy                # Used for Ping Statistics print
 
 
 # #################################################################################################################### #
@@ -308,7 +308,9 @@ class IcmpHelperLibrary:
             if len(self.__icmpTarget.strip()) <= 0 | len(self.__destinationIpAddress.strip()) <= 0:
                 self.setIcmpTarget("127.0.0.1")
 
-            print("Pinging (" + self.__icmpTarget + ") " + self.__destinationIpAddress)
+            # Only print pinging if it's the first packet of traceroute OR if it's a ping
+            if (self.getPacketSequenceNumber() == 1 and self.getTtl() == 1):
+                print("Pinging (" + self.__icmpTarget + ") " + self.__destinationIpAddress)
 
             mySocket = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)
             mySocket.settimeout(self.__ipTimeout)
@@ -340,7 +342,7 @@ class IcmpHelperLibrary:
 
                     # TODO: print error code from dictionary≠
                     if icmpType != 0:
-                        print(self.errorDict[icmpType][icmpCode])
+                        print(f"ERROR: TYPE: {icmpType}, CODE {icmpCode}, {self.errorDict[icmpType][icmpCode]}")
                         print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d    %s" %
                                 (
                                     self.getTtl(),
@@ -377,7 +379,8 @@ class IcmpHelperLibrary:
                         icmpReplyPacket = IcmpHelperLibrary.IcmpPacket_EchoReply(recvPacket)
                         self.__validateIcmpReplyPacketWithOriginalPingData(icmpReplyPacket)     # VALIDATE
                         icmpReplyPacket.printResultToConsole(self.getTtl(), timeReceived, addr)
-                        return      # Echo reply is the end and therefore should return
+                        # Return Type and Code to stop sending echo requests
+                        return icmpType, icmpCode      # Echo reply is the end and therefore should return
 
                     else:
                         print("error")
@@ -657,6 +660,50 @@ class IcmpHelperLibrary:
         print("sendIcmpTraceRoute Started...") if self.__DEBUG_IcmpHelperLibrary else 0
         # TODO:
         # Build code for trace route here
+        rttList = []                  # List to print RTT stats
+
+        # Build 3 packets
+        packetDict = {}
+        for packetNum in range(1, 4):
+            icmpPacket = IcmpHelperLibrary.IcmpPacket()
+
+            randomIdentifier = (os.getpid() & 0xffff)      # Get as 16 bit number - Limit based on ICMP header standards
+                                                           # Some PIDs are larger than 16 bit
+            packetIdentifier = randomIdentifier
+            packetSequenceNumber = packetNum
+
+            icmpPacket.buildPacket_echoRequest(packetIdentifier, packetSequenceNumber)  # Build ICMP for IP payload
+            icmpPacket.setIcmpTarget(host)
+
+            packetDict[packetNum] = icmpPacket
+
+        print(packetDict)
+
+        # Send packets
+        for hop in range(1, 20):           # Send a packet until host replies or total TTLs runs out
+            print(f"Hop: {hop}-----------------------------------------------------------")
+            for packetNum in range(1, 4):
+                packetDict[packetNum].setTtl(hop)       # Set TTL to hop (1, to 255)
+
+                returnTuple = packetDict[packetNum].sendEchoRequest()
+
+                # Maybe print an average of RTT???
+                if packetDict[packetNum].getRtt() is not None:
+                    rttList.append(packetDict[packetNum].getRtt())
+
+                # If host is reached break/return
+                if returnTuple == (0, 0) and packetNum == 3:
+                    print("Destination Reached, Echo Reply Returned!")
+                    return
+
+                # if packetDict[packetNum].getIcmpTarget() == 0 and packetNum == 3:
+                #     print("Destination Reached, Echo Reply Returned!")
+                #     return
+
+
+        # Debuggers will need a loop if implemented
+        # icmpPacket.printIcmpPacketHeader_hex() if self.__DEBUG_IcmpHelperLibrary else 0
+        # icmpPacket.printIcmpPacket_hex() if self.__DEBUG_IcmpHelperLibrary else 0
 
     # ################################################################################################################ #
     # IcmpHelperLibrary Public Functions                                                                               #
@@ -686,9 +733,11 @@ def main():
 
 
     # Choose one of the following by uncommenting out the line
-    icmpHelperPing.sendPing("209.233.126.254")
+    # icmpHelperPing.sendPing("209.233.126.254")
     # icmpHelperPing.sendPing("www.google.com")
     # icmpHelperPing.sendPing("gaia.cs.umass.edu")
+    icmpHelperPing.traceRoute("gaia.cs.umass.edu")
+    # icmpHelperPing.traceRoute("www.google.com")
     # icmpHelperPing.traceRoute("164.151.129.20")
     # icmpHelperPing.traceRoute("122.56.99.243")
 
