@@ -1,3 +1,10 @@
+# Date: 11 August 2024
+# Informed from:
+# Source: Kurose, Ross (2020). Computer Networking: A Top-Down Approach (Eighth Edition, p. 41-43, 423-425). Pearson.
+# Source URL: https://www.youtube.com/watch?v=hm1y4LsphQQ&list=PL1ya5dD_M8uX-BLUF1FEvUNsYWQL5_l0O&index=4&pp=iAQB
+# Source URL: https://www.youtube.com/watch?v=EHV0Q0R--Ns&list=PL1ya5dD_M8uX-BLUF1FEvUNsYWQL5_l0O&index=43&pp=iAQB
+# Source URL: https://www.youtube.com/watch?v=up3bcBLZS74
+
 # #################################################################################################################### #
 # Imports                                                                                                              #
 #                                                                                                                      #
@@ -72,6 +79,7 @@ class IcmpHelperLibrary:
         __rtt = None                       # RTT for packet, send to rttList for stats
         __isSent = False                # Check for if packet is sent
         __responseReceived = False      # Check for if packet is returned
+        __isPing = True                 # True if packet is just a ping, false if it is a traceroute (for printing)
 
         __DEBUG_IcmpPacket = False      # Allows for debug output
 
@@ -128,6 +136,9 @@ class IcmpHelperLibrary:
         def getResponseReceived(self):
             return self.__responseReceived
 
+        def getIsPing(self):
+            return self.__isPing
+
         # ############################################################################################################ #
         # IcmpPacket Class Setters                                                                                     #
         #                                                                                                              #
@@ -168,6 +179,9 @@ class IcmpHelperLibrary:
 
         def setResponseReceived(self, booleanValue):
             self.__responseReceived = booleanValue
+
+        def setIsPing(self, booleanValue):
+            self.__isPing = booleanValue
 
         # ############################################################################################################ #
         # IcmpPacket Class Private Functions                                                                           #
@@ -309,7 +323,7 @@ class IcmpHelperLibrary:
                 self.setIcmpTarget("127.0.0.1")
 
             # Only print pinging if it's the first packet of traceroute OR if it's a ping
-            if (self.getPacketSequenceNumber() == 1 and self.getTtl() == 1):
+            if (self.getPacketSequenceNumber() == 1 and self.getTtl() == 1) or self.getIsPing():
                 print("Pinging (" + self.__icmpTarget + ") " + self.__destinationIpAddress)
 
             mySocket = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)
@@ -340,15 +354,30 @@ class IcmpHelperLibrary:
                     # Fetch the ICMP type and code from the received packet
                     icmpType, icmpCode = recvPacket[20:22]
 
-                    # TODO: print error code from dictionary≠
+                    try:
+                        errorMessage = self.errorDict[icmpType][icmpCode]
+                    except KeyError:
+                        errorMessage = "Unknown Error"
+
+                    # TODO: Make a packet to return and print
+                    log = [
+                        self.getTtl(),
+                        (timeReceived - pingStartTime) * 1000,
+                        icmpType,
+                        icmpCode,
+                        errorMessage,
+                        addr[0]
+                    ]
+
+                    # TODO: print error code from dictionary
                     if icmpType != 0:
-                        print(f"ERROR: TYPE: {icmpType}, CODE {icmpCode}, {self.errorDict[icmpType][icmpCode]}")
-                        print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d    %s" %
+                        print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d  (%s)  %s" %
                                 (
                                     self.getTtl(),
                                     (timeReceived - pingStartTime) * 1000,
                                     icmpType,
                                     icmpCode,
+                                    errorMessage,
                                     addr[0]
                                 )
                               )
@@ -561,10 +590,16 @@ class IcmpHelperLibrary:
             if not self.isValidResponse():
                 # Print Expected and actual values
                 print(f"Response Packet NOT valid")
+                # # Print seqnum, identifier, raw data
+                # print("Response: Sequence Number=%d     Identifier=%d       Raw data=%s" %
+                #       (
+                #           self.getIcmpSequenceNumber(),
+                #           self.getIcmpIdentifier(),
+                #           self.getIcmpData()))
 
             # Else print the following
             else:
-                print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d        Identifier=%d    Sequence Number=%d    %s" %
+                print("  TTL=%d    RTT=%.0f ms    Type=%d    Code=%d      Identifier=%d    Sequence Number=%d    %s" %
                       (
                           ttl,
                           (timeReceived - timeSent) * 1000,
@@ -575,15 +610,6 @@ class IcmpHelperLibrary:
                           addr[0]
                       )
                      )
-
-                # Print Ping stats
-                # # Packets sent and # packets received, packet loss %
-
-                # RTT min
-
-                # RTT Max
-
-                # Rtt Average
 
     # ################################################################################################################ #
     # Class IcmpHelperLibrary                                                                                          #
@@ -654,18 +680,20 @@ class IcmpHelperLibrary:
         print("|------------------------------COMPLETED---------------------------------|")
         print(f"Ping Statistics for IP Address: {host}")
         print(f"{numPacketsSent} packets sent, {numPacketsReceived} packets received, {lossRate}% packet loss rate")
-        print(f"RTT:    Min: {minRtt}   Max: {maxRtt}   Avg: {avgRtt}")
+        print(f"RTT Min: {minRtt}   Max: {maxRtt}   Avg: {avgRtt}")
 
     def __sendIcmpTraceRoute(self, host):
         print("sendIcmpTraceRoute Started...") if self.__DEBUG_IcmpHelperLibrary else 0
         # TODO:
         # Build code for trace route here
-        rttList = []                  # List to print RTT stats
+        # rttList = []                  # List to print RTT stats
 
         # Build 3 packets
         packetDict = {}
         for packetNum in range(1, 4):
             icmpPacket = IcmpHelperLibrary.IcmpPacket()
+
+            icmpPacket.setIsPing(False)                    # Tell program, this is not a normal ping packet
 
             randomIdentifier = (os.getpid() & 0xffff)      # Get as 16 bit number - Limit based on ICMP header standards
                                                            # Some PIDs are larger than 16 bit
@@ -677,21 +705,21 @@ class IcmpHelperLibrary:
 
             packetDict[packetNum] = icmpPacket
 
-        print(packetDict)
+        # print(packetDict)
 
         # Send packets
-        for hop in range(1, 20):           # Send a packet until host replies or total TTLs runs out
+        for hop in range(1, packetDict[1].getTtl()):           # Send a packet until host replies or total TTLs runs out
             print(f"Hop: {hop}-----------------------------------------------------------")
             for packetNum in range(1, 4):
                 packetDict[packetNum].setTtl(hop)       # Set TTL to hop (1, to 255)
 
-                returnTuple = packetDict[packetNum].sendEchoRequest()
+                returnTuple = packetDict[packetNum].sendEchoRequest()       # Returns Type, Code for quiting
 
-                # Maybe print an average of RTT???
-                if packetDict[packetNum].getRtt() is not None:
-                    rttList.append(packetDict[packetNum].getRtt())
+                # # Maybe print an average of RTT???
+                # if packetDict[packetNum].getRtt() is not None:
+                #     rttList.append(packetDict[packetNum].getRtt())
 
-                # If host is reached break/return
+                # If host is reached by all three packets, destination has been reached
                 if returnTuple == (0, 0) and packetNum == 3:
                     print("Destination Reached, Echo Reply Returned!")
                     return
@@ -700,6 +728,7 @@ class IcmpHelperLibrary:
                 #     print("Destination Reached, Echo Reply Returned!")
                 #     return
 
+        print("TTLs Expired")
 
         # Debuggers will need a loop if implemented
         # icmpPacket.printIcmpPacketHeader_hex() if self.__DEBUG_IcmpHelperLibrary else 0
@@ -733,10 +762,10 @@ def main():
 
 
     # Choose one of the following by uncommenting out the line
-    # icmpHelperPing.sendPing("209.233.126.254")
+    icmpHelperPing.sendPing("209.233.126.254")
     # icmpHelperPing.sendPing("www.google.com")
     # icmpHelperPing.sendPing("gaia.cs.umass.edu")
-    icmpHelperPing.traceRoute("gaia.cs.umass.edu")
+    # icmpHelperPing.traceRoute("gaia.cs.umass.edu")
     # icmpHelperPing.traceRoute("www.google.com")
     # icmpHelperPing.traceRoute("164.151.129.20")
     # icmpHelperPing.traceRoute("122.56.99.243")
