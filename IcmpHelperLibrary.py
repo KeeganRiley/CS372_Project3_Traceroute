@@ -709,14 +709,18 @@ class IcmpHelperLibrary:
             icmpPacket.printIcmpPacket_hex() if self.__DEBUG_IcmpHelperLibrary else 0
             # we should be confirming values are correct, such as identifier and sequence number and data
 
-        minRtt = numpy.min(rttList)
-        maxRtt = numpy.max(rttList)
-        avgRtt = numpy.average(rttList)
-        lossRate = ((numPacketsSent - numPacketsReceived) / numPacketsSent) * 100
-        print("|------------------------------COMPLETED---------------------------------|")
-        print(f"Ping Statistics for IP Address: {host}")
-        print(f"{numPacketsSent} packets sent, {numPacketsReceived} packets received, {lossRate}% packet loss rate")
-        print(f"RTT Min: {minRtt}   Max: {maxRtt}   Avg: {avgRtt}")
+        if len(rttList) != 0:
+            minRtt = numpy.min(rttList)
+            maxRtt = numpy.max(rttList)
+            avgRtt = numpy.average(rttList)
+            lossRate = ((numPacketsSent - numPacketsReceived) / numPacketsSent) * 100
+            print("|------------------------------COMPLETED---------------------------------|")
+            print(f"Ping Statistics for IP Address: {host}")
+            print(f"{numPacketsSent} packets sent, {numPacketsReceived} packets received, {lossRate}% packet loss rate")
+            print(f"RTT Min: {minRtt}   Max: {maxRtt}   Avg: {avgRtt}")
+
+        else:
+            print("No packets returned! Loss rate 100%")
 
     def __sendIcmpTraceRoute(self, host):
         print("sendIcmpTraceRoute Started...") if self.__DEBUG_IcmpHelperLibrary else 0
@@ -803,13 +807,23 @@ def main():
 
     # Choose one of the following by uncommenting out the line
     # icmpHelperPing.sendPing("209.233.126.254")
-    # icmpHelperPing.sendPing("www.google.com")
-    # icmpHelperPing.sendPing("gaia.cs.umass.edu")
-    # icmpHelperPing.traceRoute("gaia.cs.umass.edu")
-    # icmpHelperPing.traceRoute("www.google.com")
-    icmpHelperPing.traceRoute("200.10.227.250")
-    # icmpHelperPing.traceRoute("164.151.129.20")
-    # icmpHelperPing.traceRoute("122.56.99.243")
+    # icmpHelperPing.sendPing("www.google.com")     # Works
+    # icmpHelperPing.sendPing("200.10.227.250")
+    # icmpHelperPing.sendPing("gaia.cs.umass.edu")  # Works
+    # icmpHelperPing.sendPing("164.151.129.20")       # Works
+    # icmpHelperPing.sendPing("122.56.99.243")        # This IP Address timed out on every test
+    # icmpHelperPing.sendPing("128.119.245.12")       # Works
+    # icmpHelperPing.sendPing("201.16.253.177")       # Works
+
+    # icmpHelperPing.traceRoute("gaia.cs.umass.edu")    # Works
+    # icmpHelperPing.traceRoute("www.google.com")       # Works
+    # icmpHelperPing.traceRoute("200.10.227.250")       # Returns Type 3 Code 1 at the end until TTLs run out
+    # icmpHelperPing.traceRoute("164.151.129.20")       # Works with some timeouts
+    # icmpHelperPing.traceRoute("122.56.99.243")          # Has not completed, times out
+    # icmpHelperPing.traceRoute("128.119.245.12")         # Works, returns some type 3, code 3 errors
+    icmpHelperPing.traceRoute("201.16.253.177")         #
+
+
 
 
 if __name__ == "__main__":
